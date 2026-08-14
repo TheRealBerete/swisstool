@@ -1,0 +1,235 @@
+@import "tailwindcss";
+
+/* Bascule le mode sombre via une classe .dark sur <html> (pilotée par
+   useThemeStore), plutôt que par la seule préférence système. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* ---- Alpine Mint — palette claire (source : maquette/swisstool_alpine_mint/DESIGN.md) ---- */
+  --color-background: #f7fbf0;
+  --color-on-background: #181d17;
+  --color-surface: #f7fbf0;
+  --color-surface-dim: #d7dbd2;
+  --color-surface-bright: #f7fbf0;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f1f5eb;
+  --color-surface-container: #ebefe5;
+  --color-surface-container-high: #e5eadf;
+  --color-surface-container-highest: #e0e4da;
+  --color-surface-variant: #e0e4da;
+  --color-surface-tint: #1b6d24;
+  --color-on-surface: #181d17;
+  --color-on-surface-variant: #40493d;
+  --color-outline: #707a6c;
+  --color-outline-variant: #bfcaba;
+  --color-inverse-surface: #2d322b;
+  --color-inverse-on-surface: #eef2e8;
+  --color-inverse-primary: #88d982;
+  --color-primary: #0d631b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #2e7d32;
+  --color-on-primary-container: #cbffc2;
+  --color-secondary: #556158;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #d9e6da;
+  --color-on-secondary-container: #5b675e;
+  --color-tertiary: #1d622b;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #387b41;
+  --color-on-tertiary-container: #c7ffc5;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-primary-fixed: #a3f69c;
+  --color-primary-fixed-dim: #88d982;
+  --color-on-primary-fixed: #002204;
+  --color-on-primary-fixed-variant: #005312;
+  --color-secondary-fixed: #d9e6da;
+  --color-secondary-fixed-dim: #bdcabe;
+  --color-on-secondary-fixed: #131e17;
+  --color-on-secondary-fixed-variant: #3e4a41;
+  --color-tertiary-fixed: #abf4ac;
+  --color-tertiary-fixed-dim: #90d792;
+  --color-on-tertiary-fixed: #002107;
+  --color-on-tertiary-fixed-variant: #07521d;
+}
+
+/*
+ * Palette sombre : DESIGN.md ne fournit que le schéma clair. On la dérive
+ * des rôles "fixed"/"inverse" du Material Design 3 déjà présents dans le
+ * schéma clair (prévus pour ça), plutôt que d'inventer des teintes au
+ * hasard. À affiner plus tard avec un export dark officiel si besoin.
+ */
+.dark {
+  --color-background: #14170f;
+  --color-on-background: #e3e8dc;
+  --color-surface: #14170f;
+  --color-surface-dim: #0d0f0a;
+  --color-surface-bright: #383c31;
+  --color-surface-container-lowest: #0d0f0a;
+  --color-surface-container-low: #171a13;
+  --color-surface-container: #1c1f18;
+  --color-surface-container-high: #262a21;
+  --color-surface-container-highest: #31352b;
+  --color-surface-variant: #43493d;
+  --color-surface-tint: #88d982;
+  --color-on-surface: #e3e8dc;
+  --color-on-surface-variant: #c2cbb9;
+  --color-outline: #8c968a;
+  --color-outline-variant: #43493d;
+  --color-inverse-surface: #e3e8dc;
+  --color-inverse-on-surface: #2d322b;
+  --color-inverse-primary: #0d631b;
+  --color-primary: #88d982;
+  --color-on-primary: #002204;
+  --color-primary-container: #005312;
+  --color-on-primary-container: #a3f69c;
+  --color-secondary: #bdcabe;
+  --color-on-secondary: #283025;
+  --color-secondary-container: #3e4a41;
+  --color-on-secondary-container: #d9e6da;
+  --color-tertiary: #90d792;
+  --color-on-tertiary: #003909;
+  --color-tertiary-container: #07521d;
+  --color-on-tertiary-container: #abf4ac;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+  --color-primary-fixed: #a3f69c;
+  --color-primary-fixed-dim: #88d982;
+  --color-on-primary-fixed: #002204;
+  --color-on-primary-fixed-variant: #005312;
+  --color-secondary-fixed: #d9e6da;
+  --color-secondary-fixed-dim: #bdcabe;
+  --color-on-secondary-fixed: #131e17;
+  --color-on-secondary-fixed-variant: #3e4a41;
+  --color-tertiary-fixed: #abf4ac;
+  --color-tertiary-fixed-dim: #90d792;
+  --color-on-tertiary-fixed: #002107;
+  --color-on-tertiary-fixed-variant: #07521d;
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-background: var(--color-background);
+  --color-on-background: var(--color-on-background);
+  --color-surface: var(--color-surface);
+  --color-surface-dim: var(--color-surface-dim);
+  --color-surface-bright: var(--color-surface-bright);
+  --color-surface-container-lowest: var(--color-surface-container-lowest);
+  --color-surface-container-low: var(--color-surface-container-low);
+  --color-surface-container: var(--color-surface-container);
+  --color-surface-container-high: var(--color-surface-container-high);
+  --color-surface-container-highest: var(--color-surface-container-highest);
+  --color-surface-variant: var(--color-surface-variant);
+  --color-surface-tint: var(--color-surface-tint);
+  --color-on-surface: var(--color-on-surface);
+  --color-on-surface-variant: var(--color-on-surface-variant);
+  --color-outline: var(--color-outline);
+  --color-outline-variant: var(--color-outline-variant);
+  --color-inverse-surface: var(--color-inverse-surface);
+  --color-inverse-on-surface: var(--color-inverse-on-surface);
+  --color-inverse-primary: var(--color-inverse-primary);
+  --color-primary: var(--color-primary);
+  --color-on-primary: var(--color-on-primary);
+  --color-primary-container: var(--color-primary-container);
+  --color-on-primary-container: var(--color-on-primary-container);
+  --color-secondary: var(--color-secondary);
+  --color-on-secondary: var(--color-on-secondary);
+  --color-secondary-container: var(--color-secondary-container);
+  --color-on-secondary-container: var(--color-on-secondary-container);
+  --color-tertiary: var(--color-tertiary);
+  --color-on-tertiary: var(--color-on-tertiary);
+  --color-tertiary-container: var(--color-tertiary-container);
+  --color-on-tertiary-container: var(--color-on-tertiary-container);
+  --color-error: var(--color-error);
+  --color-on-error: var(--color-on-error);
+  --color-error-container: var(--color-error-container);
+  --color-on-error-container: var(--color-on-error-container);
+  --color-primary-fixed: var(--color-primary-fixed);
+  --color-primary-fixed-dim: var(--color-primary-fixed-dim);
+  --color-on-primary-fixed: var(--color-on-primary-fixed);
+  --color-on-primary-fixed-variant: var(--color-on-primary-fixed-variant);
+  --color-secondary-fixed: var(--color-secondary-fixed);
+  --color-secondary-fixed-dim: var(--color-secondary-fixed-dim);
+  --color-on-secondary-fixed: var(--color-on-secondary-fixed);
+  --color-on-secondary-fixed-variant: var(--color-on-secondary-fixed-variant);
+  --color-tertiary-fixed: var(--color-tertiary-fixed);
+  --color-tertiary-fixed-dim: var(--color-tertiary-fixed-dim);
+  --color-on-tertiary-fixed: var(--color-on-tertiary-fixed);
+  --color-on-tertiary-fixed-variant: var(--color-on-tertiary-fixed-variant);
+
+  /* ---- Typographie (Hanken Grotesk, cf. DESIGN.md) ---- */
+  --font-sans: var(--font-hanken-grotesk), sans-serif;
+
+  --text-display-lg: 48px;
+  --text-display-lg--line-height: 56px;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 700;
+
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-lg-mobile: 28px;
+  --text-headline-lg-mobile--line-height: 36px;
+  --text-headline-lg-mobile--font-weight: 600;
+
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 32px;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 20px;
+  --text-headline-sm--line-height: 28px;
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-md: 12px;
+  --text-label-md--line-height: 16px;
+  --text-label-md--letter-spacing: 0.05em;
+  --text-label-md--font-weight: 600;
+
+  /* ---- Radius ---- */
+  --radius-sm: 0.125rem;
+  --radius-DEFAULT: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  /*
+   * ---- Spacing ----
+   * Le DESIGN.md définit une échelle "xs/sm/md/lg/xl" (4/8/16/24/32px),
+   * qui correspond en fait EXACTEMENT à l'échelle numérique par défaut de
+   * Tailwind (base --spacing: .25rem = 4px) : xs=1, sm=2, md=4, lg=6, xl=8.
+   * On utilise donc directement p-1/p-2/p-4/p-6/p-8 etc. dans le code —
+   * pas de token nommé custom ici.
+   *
+   * ⚠️ Piège Tailwind v4 : NE PAS définir --spacing-sm/md/lg/xl soi-même.
+   * En v4, w-*, h-*, max-w-*, p-*, gap-*... partagent tous le même espace
+   * de noms "spacing". Définir --spacing-sm écrase alors silencieusement
+   * max-w-sm (24rem → 8px) et casse la mise en page. Vécu en prod ici :
+   * tous les champs du formulaire de login s'affichaient en timbre-poste.
+   */
+  --spacing-container-margin: 40px;
+  --spacing-gutter: 24px;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-on-background);
+  font-family: var(--font-sans);
+}

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SwissTool Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#e0e4da",
+                        "error-container": "#ffdad6",
+                        "surface-container": "#ebefe5",
+                        "secondary-container": "#d9e6da",
+                        "tertiary-container": "#387b41",
+                        "primary-fixed-dim": "#88d982",
+                        "on-surface-variant": "#40493d",
+                        "tertiary-fixed-dim": "#90d792",
+                        "on-secondary-fixed": "#131e17",
+                        "outline": "#707a6c",
+                        "surface-bright": "#f7fbf0",
+                        "inverse-surface": "#2d322b",
+                        "primary-container": "#2e7d32",
+                        "on-tertiary-fixed": "#002107",
+                        "surface-tint": "#1b6d24",
+                        "on-primary-fixed": "#002204",
+                        "tertiary-fixed": "#abf4ac",
+                        "surface-variant": "#e0e4da",
+                        "on-primary-container": "#cbffc2",
+                        "surface": "#f7fbf0",
+                        "surface-container-low": "#f1f5eb",
+                        "on-primary-fixed-variant": "#005312",
+                        "on-background": "#181d17",
+                        "background": "#f7fbf0",
+                        "on-secondary-fixed-variant": "#3e4a41",
+                        "surface-container-high": "#e5eadf",
+                        "surface-dim": "#d7dbd2",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#c7ffc5",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#0d631b",
+                        "on-tertiary-fixed-variant": "#07521d",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-surface": "#181d17",
+                        "inverse-on-surface": "#eef2e8",
+                        "on-secondary-container": "#5b675e",
+                        "secondary": "#556158",
+                        "inverse-primary": "#88d982",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#d9e6da",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#bfcaba",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#bdcabe",
+                        "primary-fixed": "#a3f69c",
+                        "tertiary": "#1d622b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "container-margin": "40px",
+                        "gutter": "24px",
+                        "sm": "8px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Hanken Grotesk"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col md:flex-row">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col gap-sm p-md bg-surface-container-low dark:bg-surface-container h-screen w-64 fixed left-0 top-0 border-r border-outline-variant dark:border-outline z-10">
+<div class="mb-lg px-sm">
+<div class="flex items-center gap-sm mb-xs">
+<img class="w-8 h-8 object-contain" data-alt="A clean, minimalist logo featuring a geometric gear shape in a deep forest green, overlaid with a soft alpine green medical cross, representing precision and high-grade utility in a modern Swiss design style." src="https://lh3.googleusercontent.com/aida/AP1WRLslkaNg0gCxnuG7ZhxC_CHl6ONY2484y4hQIBBdS-IYoVeBSHtCIqDeXLFzaCXr0ursFdkwlXGUbm5MAMHRhUFsLXLncWz_koxQiuRCQyJktwBN5ZjyNVo-MC3nUlbOYeFd-Q1rC-_naPQok6-xxfphJbdpqXdXLv_3EyLDPtzFZPOO44Zyq8ZG-2XC17cDLTSTwUu5Az1o344wmuoz43zHYvLILkK33NJLF3Ds9SjcXFCsrvSVqX-tmIs"/>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">SwissTool</h1>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Precision Utility</p>
+</div>
+<div class="flex flex-col gap-xs flex-1">
+<!-- Active Tab -->
+<a class="flex items-center gap-sm py-sm px-md text-primary dark:text-primary-fixed-dim font-bold border-r-2 border-primary bg-secondary-container dark:bg-on-secondary-fixed-variant transition-all duration-200 rounded-l-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<!-- Inactive Tabs -->
+<a class="flex items-center gap-sm py-sm px-md text-on-surface-variant dark:text-on-surface-variant hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 rounded-l-lg" href="#">
+<span class="material-symbols-outlined">content_paste</span>
+<span class="font-label-md text-label-md">Clipboard</span>
+</a>
+<a class="flex items-center gap-sm py-sm px-md text-on-surface-variant dark:text-on-surface-variant hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 rounded-l-lg" href="#">
+<span class="material-symbols-outlined">folder_shared</span>
+<span class="font-label-md text-label-md">Files</span>
+</a>
+<a class="flex items-center gap-sm py-sm px-md text-on-surface-variant dark:text-on-surface-variant hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 rounded-l-lg" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-label-md text-label-md">Devices</span>
+</a>
+</div>
+<div class="mt-auto">
+<a class="flex items-center gap-sm py-sm px-md text-on-surface-variant dark:text-on-surface-variant hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 rounded-l-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-64 flex flex-col min-h-screen">
+<!-- TopAppBar (Mobile & Desktop Header) -->
+<header class="flex justify-between items-center px-lg py-md w-full top-0 sticky bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline z-20">
+<div class="flex items-center gap-sm md:hidden">
+<img class="w-8 h-8 object-contain" data-alt="A clean, minimalist logo featuring a geometric gear shape in a deep forest green, overlaid with a soft alpine green medical cross, representing precision and high-grade utility in a modern Swiss design style." src="https://lh3.googleusercontent.com/aida/AP1WRLslkaNg0gCxnuG7ZhxC_CHl6ONY2484y4hQIBBdS-IYoVeBSHtCIqDeXLFzaCXr0ursFdkwlXGUbm5MAMHRhUFsLXLncWz_koxQiuRCQyJktwBN5ZjyNVo-MC3nUlbOYeFd-Q1rC-_naPQok6-xxfphJbdpqXdXLv_3EyLDPtzFZPOO44Zyq8ZG-2XC17cDLTSTwUu5Az1o344wmuoz43zHYvLILkK33NJLF3Ds9SjcXFCsrvSVqX-tmIs"/>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary dark:text-primary-fixed-dim">SwissTool</h1>
+</div>
+<div class="hidden md:block">
+<h2 class="font-headline-sm text-headline-sm text-on-background">Overview</h2>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-xs rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors active:opacity-80">
+<span class="material-symbols-outlined">sync</span>
+</button>
+<button class="p-xs rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors active:opacity-80">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+</div>
+</header>
+<!-- Dashboard Content Canvas -->
+<div class="p-md md:p-gutter max-w-[1120px] mx-auto w-full grid grid-cols-1 md:grid-cols-12 gap-gutter flex-1">
+<!-- File Transfer Section (Takes up more space) -->
+<section class="md:col-span-8 flex flex-col gap-md">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg flex flex-col items-center justify-center min-h-[400px] border-dashed border-2 bg-surface-container-low/50 relative overflow-hidden group hover:border-primary transition-colors duration-300 cursor-pointer">
+<div class="absolute top-sm right-sm flex items-center gap-xs bg-surface-container px-sm py-xs rounded-md border border-outline-variant">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+<span class="font-label-md text-label-md text-on-surface-variant">2 Devices Connected</span>
+</div>
+<div class="w-16 h-16 rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center mb-md shadow-sm group-hover:scale-105 transition-transform duration-300">
+<span class="material-symbols-outlined text-[32px] text-primary">upload_file</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-background mb-xs">Secure Drop</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-center max-w-sm mb-lg">
+                        Drag and drop files here or click to browse. End-to-end encryption active.
+                    </p>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-lg hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Select Files
+                    </button>
+</div>
+</section>
+<!-- Shared Clipboard Section -->
+<section class="md:col-span-4 flex flex-col gap-md">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl h-full flex flex-col">
+<div class="p-md border-b border-outline-variant flex justify-between items-center bg-surface-container-low/30 rounded-t-xl">
+<h3 class="font-headline-sm text-headline-sm text-on-background flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">content_copy</span>
+                            Recent Snippets
+                        </h3>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex-1 p-sm flex flex-col gap-xs overflow-y-auto max-h-[400px]">
+<!-- Snippet Item 1 -->
+<div class="p-md rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant group cursor-pointer">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-md text-label-md bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded text-[10px]">TEXT</span>
+<span class="font-body-sm text-body-sm text-outline text-[12px]">Just now</span>
+</div>
+<p class="font-body-md text-body-md text-on-background truncate font-mono text-sm">
+                                config_prod.yaml
+                            </p>
+</div>
+<!-- Divider -->
+<div class="h-px bg-outline-variant/50 mx-md"></div>
+<!-- Snippet Item 2 -->
+<div class="p-md rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant group cursor-pointer">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-md text-label-md bg-error-container/20 text-error px-2 py-0.5 rounded text-[10px]">SECRET</span>
+<span class="font-body-sm text-body-sm text-outline text-[12px]">2m ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-background truncate font-mono text-sm">
+                                api_key_hidden_**********
+                            </p>
+</div>
+<!-- Divider -->
+<div class="h-px bg-outline-variant/50 mx-md"></div>
+<!-- Snippet Item 3 -->
+<div class="p-md rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant group cursor-pointer">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-md text-label-md bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded text-[10px]">LINK</span>
+<span class="font-body-sm text-body-sm text-outline text-[12px]">1h ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-background truncate font-mono text-sm text-primary">
+                                https://internal.swisstool.dev/docs
+                            </p>
+</div>
+</div>
+<div class="p-sm border-t border-outline-variant text-center bg-surface-container-low/30 rounded-b-xl">
+<button class="font-label-md text-label-md text-primary hover:text-on-primary-fixed-variant transition-colors w-full py-sm">
+                            View All History
+                        </button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-md py-sm pb-safe bg-surface dark:bg-surface-dim border-t border-outline-variant dark:border-outline z-50">
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-tertiary-container text-on-secondary-container dark:text-on-tertiary-container rounded-xl px-4 py-1 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-md text-label-md text-[10px] mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1 hover:bg-surface-container-high rounded-xl active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">content_paste</span>
+<span class="font-label-md text-label-md text-[10px] mt-1">Clipboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1 hover:bg-surface-container-high rounded-xl active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">folder_shared</span>
+<span class="font-label-md text-label-md text-[10px] mt-1">Files</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant px-4 py-1 hover:bg-surface-container-high rounded-xl active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md text-[10px] mt-1">Settings</span>
+</a>
+</nav>
+</body></html>
