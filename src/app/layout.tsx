@@ -24,6 +24,12 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#f7fbf0" },
     { media: "(prefers-color-scheme: dark)", color: "#14170f" },
   ],
+  // Sans ça, Safari garde le contenu à distance du home indicator tout
+  // seul MAIS n'expose pas env(safe-area-inset-bottom) à notre CSS (la
+  // valeur reste à 0) — on ne peut donc pas ajuster nous-mêmes le padding
+  // du BottomNav pour ce cas précis. "cover" étend le contenu sous cette
+  // zone et nous laisse gérer l'espacement via env() (voir BottomNav.tsx).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

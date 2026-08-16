@@ -5,7 +5,10 @@ import sharp from "sharp";
 import { mkdir } from "node:fs/promises";
 
 const SOURCE = "swisstool_icon_clean.png";
-const PRIMARY = "#0d631b"; // --color-primary (Alpine Mint)
+// Fond plein utilisé derrière le logo (maskable + apple-touch-icon) : blanc,
+// pas la couleur primaire — décision utilisateur, le vert plein sur l'icône
+// d'accueil rendait mal comparé au logo original (fond transparent).
+const ICON_BACKGROUND = "#ffffff";
 
 await mkdir("public/icons", { recursive: true });
 
@@ -16,9 +19,9 @@ async function transparentIcon(size, outPath) {
 }
 
 // Icônes "maskable" — le logo touche presque les bords de l'image source,
-// donc on le réduit à 70% et on le centre sur un fond plein (couleur
-// primaire) pour respecter la "safe zone" de 80% exigée par le standard
-// maskable (sinon Android/iOS rognent les dents de l'engrenage en cercle).
+// donc on le réduit à 70% et on le centre sur un fond plein pour respecter
+// la "safe zone" de 80% exigée par le standard maskable (sinon Android/iOS
+// rognent les dents de l'engrenage en cercle).
 async function maskableIcon(size, outPath) {
   const inner = Math.round(size * 0.7);
   const logo = await sharp(SOURCE).resize(inner, inner).toBuffer();
@@ -27,7 +30,7 @@ async function maskableIcon(size, outPath) {
       width: size,
       height: size,
       channels: 4,
-      background: PRIMARY,
+      background: ICON_BACKGROUND,
     },
   })
     .composite([{ input: logo, gravity: "center" }])
@@ -42,7 +45,7 @@ async function appleIcon(size, outPath) {
   const inner = Math.round(size * 0.82);
   const logo = await sharp(SOURCE).resize(inner, inner).toBuffer();
   await sharp({
-    create: { width: size, height: size, channels: 4, background: PRIMARY },
+    create: { width: size, height: size, channels: 4, background: ICON_BACKGROUND },
   })
     .composite([{ input: logo, gravity: "center" }])
     .png()

@@ -1,5 +1,6 @@
-import { FilesModule } from "@/modules/files";
+import { redirect } from "next/navigation";
 
+// Le module Fichiers vit maintenant dans /outils (onglet "files").
 export default function FilesPage() {
-  return <FilesModule />;
+  redirect("/outils?tool=files");
 }

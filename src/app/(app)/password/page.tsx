@@ -1,5 +1,6 @@
-import { PasswordModule } from "@/modules/password";
+import { redirect } from "next/navigation";
 
+// Le module Générateur vit maintenant dans /outils (onglet "password").
 export default function PasswordPage() {
-  return <PasswordModule />;
+  redirect("/outils?tool=password");
 }

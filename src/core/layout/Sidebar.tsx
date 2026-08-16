@@ -3,8 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings } from "lucide-react";
-import { modules } from "@/core/registry/modules";
+import { navItems } from "@/core/registry/modules";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -30,13 +29,13 @@ export function Sidebar() {
       </div>
 
       <div className="flex flex-col gap-1 flex-1">
-        {modules.map((mod) => {
-          const active = pathname.startsWith(mod.href);
-          const Icon = mod.icon;
+        {navItems.map((item) => {
+          const active = pathname.startsWith(item.href);
+          const Icon = item.icon;
           return (
             <Link
-              key={mod.id}
-              href={mod.href}
+              key={item.id}
+              href={item.href}
               className={`flex items-center gap-2 py-2 px-4 rounded-l-lg transition-all duration-200 ${
                 active
                   ? "text-primary dark:text-primary-fixed-dim font-bold border-r-2 border-primary bg-secondary-container dark:bg-on-secondary-fixed-variant"
@@ -44,20 +43,10 @@ export function Sidebar() {
               }`}
             >
               <Icon className="w-5 h-5" />
-              <span className="font-label-md text-label-md">{mod.label}</span>
+              <span className="font-label-md text-label-md">{item.label}</span>
             </Link>
           );
         })}
-      </div>
-
-      <div className="mt-auto">
-        <Link
-          href="/settings"
-          className="flex items-center gap-2 py-2 px-4 text-on-surface-variant hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant transition-all duration-200 rounded-l-lg"
-        >
-          <Settings className="w-5 h-5" />
-          <span className="font-label-md text-label-md">Paramètres</span>
-        </Link>
       </div>
     </nav>
   );

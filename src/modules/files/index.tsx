@@ -7,6 +7,7 @@ import { Button } from "@/shared/Button";
 import { Badge } from "@/shared/Badge";
 import { isExpired } from "@/shared/CountdownTimer";
 import { useSharedFiles } from "./hooks";
+import { FileThumbnail } from "./FileThumbnail";
 import { MAX_FILE_SIZE_BYTES } from "./types";
 
 function formatSize(bytes: number): string {
@@ -65,8 +66,8 @@ export function FilesModule() {
           Secure Drop
         </h3>
         <p className="font-body-md text-body-md text-on-surface-variant text-center max-w-sm mb-6">
-          Glisse un fichier ici ou clique pour parcourir. Expire dans 1h, comme le
-          presse-papier — {MAX_FILE_SIZE_BYTES / 1024 / 1024} Mo max.
+          Glisse un fichier, colle une image (Ctrl+V) ou clique pour parcourir.
+          Expire dans 1h, comme le presse-papier — {MAX_FILE_SIZE_BYTES / 1024 / 1024} Mo max.
         </p>
         <Button disabled={uploading} onClick={(e) => e.stopPropagation()}>
           <Plus className="w-3.5 h-3.5" />
@@ -107,7 +108,13 @@ export function FilesModule() {
             const expired = isExpired(file.expires_at);
             return (
               <div key={file.id} className="p-4 flex items-center gap-4">
-                <FileIcon className="w-5 h-5 text-outline shrink-0" />
+                {file.mime_type?.startsWith("image/") ? (
+                  <FileThumbnail file={file} />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center shrink-0">
+                    <FileIcon className="w-4 h-4 text-outline" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1 mb-1 flex-wrap">
                     {expired && <Badge tone="muted">Expiré</Badge>}

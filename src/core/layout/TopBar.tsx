@@ -1,18 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
-import { modules } from "@/core/registry/modules";
+import { navItems, tools } from "@/core/registry/modules";
 import { useThemeStore } from "@/core/store/useThemeStore";
 
 export function TopBar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const theme = useThemeStore((state) => state.theme);
   const toggle = useThemeStore((state) => state.toggle);
 
-  const currentModule = modules.find((mod) => pathname.startsWith(mod.href));
-  const title = currentModule?.label ?? "Paramètres";
+  // Cas particulier : sur /outils, le titre doit refléter l'onglet actif
+  // (Presse-papier, Générateur MDP...), pas juste "Outils" — sinon on perd
+  // l'info la plus utile du header en permanence sur cette page.
+  let title = navItems.find((item) => pathname.startsWith(item.href))?.label ?? "Réglages";
+  if (pathname.startsWith("/outils")) {
+    const activeTool = tools.find((tool) => tool.id === searchParams.get("tool"));
+    title = activeTool?.label ?? tools[0].label;
+  }
 
   return (
     <header className="flex justify-between items-center px-6 py-4 w-full top-0 sticky bg-surface dark:bg-surface-dim border-b border-outline-variant z-20">

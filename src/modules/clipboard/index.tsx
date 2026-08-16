@@ -17,6 +17,13 @@ const TYPE_OPTIONS: { value: ClipboardItemType; label: string; icon: typeof Type
   { value: "password", label: "Secret", icon: Lock },
 ];
 
+// Un QR code perd en fiabilité de scan bien avant sa limite technique —
+// au-delà de ce seuil de caractères, on encode un LIEN vers la page de
+// lecture (/clipboard/[id]) plutôt que le texte brut : le QR reste petit
+// et scannable, et l'appareil qui scanne affiche le texte complet une
+// fois la page ouverte (voir ClipboardItemView.tsx).
+const QR_RAW_THRESHOLD = 300;
+
 export function ClipboardModule() {
   const { latest, loading, shareText } = useSharedClipboard();
   const [content, setContent] = useState("");
@@ -99,12 +106,27 @@ export function ClipboardModule() {
                     className="font-mono text-body-sm text-outline ml-auto"
                   />
                 </div>
-                <p className="font-body-md text-body-md text-on-background break-all text-center bg-surface-container-low rounded-lg px-4 py-2 w-full">
-                  {activeItem.type === "password" ? "•".repeat(Math.min(activeItem.content.length, 24)) : activeItem.content}
+                <p className="font-body-md text-body-md text-on-background break-all text-center bg-surface-container-low rounded-lg px-4 py-2 w-full line-clamp-6">
+                  {activeItem.type === "password"
+                    ? "•".repeat(Math.min(activeItem.content.length, 24))
+                    : activeItem.content}
                 </p>
                 <div className="bg-white p-2 rounded-lg">
-                  <QRCodeSVG value={activeItem.content} size={160} />
+                  <QRCodeSVG
+                    value={
+                      activeItem.content.length > QR_RAW_THRESHOLD
+                        ? `${window.location.origin}/clipboard/${activeItem.id}`
+                        : activeItem.content
+                    }
+                    size={160}
+                  />
                 </div>
+                {activeItem.content.length > QR_RAW_THRESHOLD && (
+                  <p className="font-body-sm text-body-sm text-on-surface-variant text-center -mt-2">
+                    Texte long : le QR ouvre la page de lecture plutôt que de l&apos;encoder
+                    directement.
+                  </p>
+                )}
                 <Button
                   variant="secondary"
                   className="w-full"

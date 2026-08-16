@@ -55,12 +55,15 @@ export async function uploadFile(file: File): Promise<SharedFile | null> {
 
 export async function getDownloadUrl(storagePath: string): Promise<string | null> {
   const supabase = createClient();
-  // URL signée, valable 60s : le bucket est privé, pas d'URL publique.
-  // Une validité courte suffit puisqu'elle n'est générée qu'au clic sur
-  // "Télécharger", pas stockée nulle part.
+  // URL signée, valable 5 minutes : le bucket est privé, pas d'URL
+  // publique. Cette même fonction sert maintenant à deux usages — le clic
+  // "Télécharger" ET la miniature d'aperçu affichée dans la liste — donc
+  // la durée doit couvrir le temps de consultation de la page, pas juste
+  // un clic instantané. Reste court à l'échelle d'une URL signée : jamais
+  // stockée, générée à la demande, inutile passé ce délai.
   const { data, error } = await supabase.storage
     .from(FILES_BUCKET)
-    .createSignedUrl(storagePath, 60);
+    .createSignedUrl(storagePath, 300);
 
   if (error) {
     toast.error("Impossible de générer le lien de téléchargement");
