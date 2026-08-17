@@ -6,10 +6,18 @@ import { deleteFile, getDownloadUrl, uploadFile } from "@/core/services/filesApi
 import { toast } from "@/core/store/useToastStore";
 import type { SharedFile } from "./types";
 
+/** Upload en cours, affiché comme ligne "fantôme" dans la liste le temps
+ * que la vraie ligne (avec son id définitif) arrive. */
+export interface PendingUpload {
+  id: string;
+  name: string;
+  size: number;
+}
+
 export function useSharedFiles() {
   const [files, setFiles] = useState<SharedFile[]>([]);
+  const [pending, setPending] = useState<PendingUpload[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -25,14 +33,27 @@ export function useSharedFiles() {
     }
     load();
 
-    // Realtime : un upload depuis un autre appareil doit apparaître ici
-    // sans recharger la page, même logique que le presse-papier.
+    // Realtime appliqué directement depuis le payload (pas de re-fetch) —
+    // même technique que le presse-papier : un aller-retour réseau en
+    // moins, donc un upload fait sur un autre appareil apparaît vraiment
+    // "instantanément" plutôt qu'après un rechargement complet de liste.
     const channel = supabase
       .channel("shared_files_changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "shared_files" },
-        () => load()
+        { event: "INSERT", schema: "public", table: "shared_files" },
+        (payload) => {
+          const row = payload.new as SharedFile;
+          setFiles((prev) => (prev.some((f) => f.id === row.id) ? prev : [row, ...prev]));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "shared_files" },
+        (payload) => {
+          const row = payload.old as Pick<SharedFile, "id">;
+          setFiles((prev) => prev.filter((f) => f.id !== row.id));
+        }
       )
       .subscribe();
 
@@ -42,10 +63,20 @@ export function useSharedFiles() {
   }, []);
 
   const upload = useCallback(async (file: File) => {
-    setUploading(true);
+    // Ligne fantôme affichée immédiatement (avant même que l'upload réseau
+    // ne démarre) : c'est ça qui donne le retour visuel instantané, pas
+    // d'attendre que Supabase confirme quoi que ce soit.
+    const tempId = crypto.randomUUID();
+    setPending((prev) => [...prev, { id: tempId, name: file.name, size: file.size }]);
+
     const item = await uploadFile(file);
-    setUploading(false);
-    if (item) setFiles((prev) => [item, ...prev]);
+
+    setPending((prev) => prev.filter((p) => p.id !== tempId));
+    if (item) {
+      // Ajout optimiste local — le filtre anti-doublon protège contre le
+      // cas où l'événement Realtime serait déjà arrivé entre-temps.
+      setFiles((prev) => (prev.some((f) => f.id === item.id) ? prev : [item, ...prev]));
+    }
   }, []);
 
   const download = useCallback(async (file: SharedFile) => {
@@ -73,5 +104,14 @@ export function useSharedFiles() {
     }
   }, [files]);
 
-  return { files, loading, uploading, upload, download, remove, clearAll };
+  return {
+    files,
+    pending,
+    loading,
+    uploading: pending.length > 0,
+    upload,
+    download,
+    remove,
+    clearAll,
+  };
 }

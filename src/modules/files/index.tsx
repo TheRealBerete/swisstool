@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Download, File as FileIcon, Plus, Trash2, UploadCloud } from "lucide-react";
+import { Download, File as FileIcon, Loader2, Plus, Trash2, UploadCloud } from "lucide-react";
 import { Card } from "@/shared/Card";
 import { Button } from "@/shared/Button";
 import { Badge } from "@/shared/Badge";
@@ -26,7 +26,8 @@ function formatDate(iso: string) {
 }
 
 export function FilesModule() {
-  const { files, loading, uploading, upload, download, remove, clearAll } = useSharedFiles();
+  const { files, pending, loading, uploading, upload, download, remove, clearAll } =
+    useSharedFiles();
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +60,12 @@ export function FilesModule() {
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
-        <div className="w-16 h-16 rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center mb-4">
-          <UploadCloud className="w-8 h-8 text-primary" />
+        <div
+          className={`w-16 h-16 rounded-2xl bg-surface-container border border-outline-variant flex items-center justify-center mb-4 transition-transform ${
+            uploading ? "animate-pulse" : ""
+          }`}
+        >
+          <UploadCloud className={`w-8 h-8 text-primary ${uploading ? "animate-bounce" : ""}`} />
         </div>
         <h3 className="font-headline-md text-headline-md text-on-background mb-1">
           Secure Drop
@@ -69,10 +74,31 @@ export function FilesModule() {
           Glisse un fichier, colle une image (Ctrl+V) ou clique pour parcourir.
           Expire dans 1h, comme le presse-papier — {MAX_FILE_SIZE_BYTES / 1024 / 1024} Mo max.
         </p>
-        <Button disabled={uploading} onClick={(e) => e.stopPropagation()}>
+        <Button
+          disabled={uploading}
+          onClick={(e) => {
+            // stopPropagation évite un 2e déclenchement via l'onClick de la
+            // Card parente (même cible), mais il fallait aussi ouvrir le
+            // sélecteur ICI — avant, le bouton ne faisait QUE bloquer sa
+            // propre propagation sans jamais appeler .click() lui-même, il
+            // ne se passait donc littéralement rien au clic dessus.
+            e.stopPropagation();
+            inputRef.current?.click();
+          }}
+        >
           <Plus className="w-3.5 h-3.5" />
-          {uploading ? "Envoi..." : "Choisir un fichier"}
+          {uploading ? "Envoi en cours..." : "Choisir un fichier"}
         </Button>
+        {/* Barre indéterminée : Supabase Storage (fetch, pas XHR) ne
+            remonte pas de progression en octets exploitable côté client,
+            donc on affiche un mouvement continu plutôt qu'un pourcentage
+            inventé — signal honnête que "ça travaille", pas une fausse
+            précision. */}
+        {uploading && (
+          <div className="w-full h-1 mt-4 rounded-full bg-surface-container overflow-hidden">
+            <div className="h-full w-1/3 rounded-full bg-primary animate-[upload-slide_1.1s_ease-in-out_infinite]" />
+          </div>
+        )}
       </Card>
 
       <Card className="flex flex-col overflow-hidden">
@@ -99,11 +125,24 @@ export function FilesModule() {
               Chargement...
             </p>
           )}
-          {!loading && files.length === 0 && (
+          {!loading && files.length === 0 && pending.length === 0 && (
             <p className="font-body-sm text-body-sm text-on-surface-variant p-6 text-center">
               Aucun fichier partagé pour l&apos;instant.
             </p>
           )}
+          {pending.map((p) => (
+            <div key={p.id} className="p-4 flex items-center gap-4 opacity-60">
+              <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center shrink-0">
+                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="font-body-sm text-[12px] text-outline">
+                  {formatSize(p.size)} · envoi en cours...
+                </span>
+                <p className="font-mono text-body-sm text-on-background truncate">{p.name}</p>
+              </div>
+            </div>
+          ))}
           {files.map((file) => {
             const expired = isExpired(file.expires_at);
             return (

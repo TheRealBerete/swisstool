@@ -32,14 +32,27 @@ export function useHistory() {
     }
     load();
 
-    // Écoute large ("*") : un partage (INSERT), une suppression (DELETE)
-    // depuis un autre appareil doivent tous les deux rafraîchir la liste.
+    // Realtime appliqué directement depuis le payload (pas de re-fetch) :
+    // un partage (INSERT) ou une suppression (DELETE) depuis un autre
+    // appareil met à jour la liste sans aller-retour réseau supplémentaire
+    // — c'est ce qui la rend vraiment "instantanée", pas juste rafraîchie.
     const channel = supabase
       .channel("history_changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "clipboard_items" },
-        () => load()
+        { event: "INSERT", schema: "public", table: "clipboard_items" },
+        (payload) => {
+          const row = payload.new as ClipboardItem;
+          setItems((prev) => (prev.some((i) => i.id === row.id) ? prev : [row, ...prev].slice(0, 50)));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "clipboard_items" },
+        (payload) => {
+          const row = payload.old as Pick<ClipboardItem, "id">;
+          setItems((prev) => prev.filter((i) => i.id !== row.id));
+        }
       )
       .subscribe();
     return () => {
