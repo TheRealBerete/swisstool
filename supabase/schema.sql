@@ -1,10 +1,21 @@
--- SwissTool — schéma V1 (presse-papier partagé)
+-- SwissTool — schéma V2 (multi-tenant)
 -- À exécuter dans Supabase Studio > SQL Editor sur un projet neuf.
+--
+-- Historique : passé de "verrou d'accès simple" (V1, un seul compte, RLS
+-- `using (true)`) à un vrai multi-tenant le 2026-08-20 (voir migration
+-- `multi_tenant_isolation`). Ce fichier reflète l'état CIBLE pour un
+-- déploiement neuf — écrit directement avec `user_id`, contrairement à la
+-- migration réelle qui a dû l'ajouter via ALTER TABLE + backfill sur une
+-- base déjà peuplée.
 
 create extension if not exists pgcrypto;
 
 create table if not exists public.clipboard_items (
   id uuid primary key default gen_random_uuid(),
+  -- Chaque ligne appartient à un seul compte. `default auth.uid()` : à
+  -- l'insertion depuis le client, pas besoin de le préciser — Postgres
+  -- récupère l'identité du compte connecté depuis le JWT de la requête.
+  user_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
   content text not null,
   type text not null default 'text' check (type in ('text', 'password', 'link')),
   created_at timestamptz not null default now(),
@@ -13,11 +24,15 @@ create table if not exists public.clipboard_items (
 
 create index if not exists idx_clipboard_expires_at on public.clipboard_items (expires_at);
 create index if not exists idx_clipboard_created_at on public.clipboard_items (created_at desc);
+create index if not exists idx_clipboard_items_user_id on public.clipboard_items (user_id);
 
--- Réplique la ligne complète (pas juste l'id) sur UPDATE/DELETE, pour que
--- Realtime puisse notifier les autres modules (ex: Historique) de ce qui
--- a été supprimé, pas juste "quelque chose a changé".
-alter table public.clipboard_items replica identity full;
+-- ⚠️ PAS `replica identity full` ici, volontairement. Realtime n'applique
+-- PAS RLS aux événements DELETE (contrairement à INSERT/UPDATE, vérifiés
+-- par abonné) — avec `full`, le payload `old` d'un DELETE contiendrait la
+-- ligne ENTIÈRE (mot de passe en clair inclus) et partirait vers TOUS les
+-- clients connectés, pas seulement le propriétaire. L'identité par défaut
+-- (clé primaire seule dans `old`) suffit : aucun code de l'app ne lit
+-- autre chose que `.id` sur un DELETE (voir hooks.ts des 3 modules).
 
 -- Realtime : sans cette ligne, aucun événement WebSocket n'est envoyé
 -- même si RLS autorise la lecture. C'est ce qui fait fonctionner le
@@ -27,43 +42,40 @@ alter publication supabase_realtime add table public.clipboard_items;
 alter table public.clipboard_items enable row level security;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- RLS — V1 "verrou d'accès simple" (décision prise avec l'utilisateur) :
--- un seul compte existe, donc pas de colonne user_id ni de filtrage par
--- propriétaire. Toute personne authentifiée (= qui a réussi le login) voit
--- et modifie tout. Les visiteurs anonymes n'ont AUCUN accès — la sécurité
--- repose sur "il faut un compte", pas sur "l'URL est secrète".
---
--- Passage futur au multi-comptes : ajouter une colonne
--- `user_id uuid references auth.users default auth.uid()`, puis remplacer
--- `using (true)` par `using (auth.uid() = user_id)` dans chaque policy.
+-- RLS multi-tenant : chaque compte ne voit/modifie que ses propres lignes.
+-- `(select auth.uid())` plutôt que `auth.uid()` nu : enveloppé dans un
+-- sous-select, Postgres l'évalue une seule fois par requête (initplan) au
+-- lieu d'une fois par ligne — recommandation officielle Supabase pour les
+-- policies RLS à fort volume.
 -- ─────────────────────────────────────────────────────────────────────────
-create policy "authenticated can read clipboard_items"
+create policy "users can read own clipboard_items"
   on public.clipboard_items for select
   to authenticated
-  using (true);
+  using ((select auth.uid()) = user_id);
 
-create policy "authenticated can insert clipboard_items"
+create policy "users can insert own clipboard_items"
   on public.clipboard_items for insert
   to authenticated
-  with check (true);
+  with check ((select auth.uid()) = user_id);
 
-create policy "authenticated can update clipboard_items"
+create policy "users can update own clipboard_items"
   on public.clipboard_items for update
   to authenticated
-  using (true);
+  using ((select auth.uid()) = user_id);
 
-create policy "authenticated can delete clipboard_items"
+create policy "users can delete own clipboard_items"
   on public.clipboard_items for delete
   to authenticated
-  using (true);
+  using ((select auth.uid()) = user_id);
 
 -- ─────────────────────────────────────────────────────────────────────────
--- Historique borné à 50 entrées (décision utilisateur, PRD §13).
--- Trigger déclenché après chaque insertion : supprime tout ce qui dépasse
--- les 50 lignes les plus récentes. Les entrées expirées restent dans ces
--- 50 lignes avec leur contenu intact — l'expiration n'est qu'un badge
--- calculé côté client à partir de `expires_at` (voir CountdownTimer.tsx),
--- pas une suppression.
+-- Historique borné à 50 entrées PAR COMPTE (décision utilisateur, PRD §13).
+-- Trigger ROW-level (pas statement) : il a besoin de NEW.user_id pour ne
+-- purger que l'historique du compte qui vient d'insérer, sinon un compte
+-- très actif finirait par éjecter l'historique de tous les autres.
+-- Les entrées expirées restent dans ces 50 lignes avec leur contenu
+-- intact — l'expiration n'est qu'un badge calculé côté client à partir de
+-- `expires_at` (voir CountdownTimer.tsx), pas une suppression.
 -- ─────────────────────────────────────────────────────────────────────────
 create or replace function public.enforce_clipboard_history_limit()
 returns trigger
@@ -73,19 +85,21 @@ set search_path = public
 as $$
 begin
   delete from public.clipboard_items
-  where id in (
-    select id from public.clipboard_items
-    order by created_at desc
-    offset 50
-  );
-  return null; -- trigger AFTER, statement-level : la valeur de retour est ignorée
+  where user_id = new.user_id
+    and id in (
+      select id from public.clipboard_items
+      where user_id = new.user_id
+      order by created_at desc
+      offset 50
+    );
+  return null;
 end;
 $$;
 
 drop trigger if exists trg_enforce_clipboard_history_limit on public.clipboard_items;
 create trigger trg_enforce_clipboard_history_limit
   after insert on public.clipboard_items
-  for each statement
+  for each row
   execute function public.enforce_clipboard_history_limit();
 
 -- ─────────────────────────────────────────────────────────────────────────
@@ -94,6 +108,8 @@ create trigger trg_enforce_clipboard_history_limit
 -- rester lisible dans l'historique après expiration, le CONTENU d'un mot
 -- de passe expiré est remplacé par un marqueur — la ligne (type, date)
 -- reste visible dans l'historique, mais le secret lui-même disparaît.
+-- Global (pas de filtre user_id) : elle ne fait que rédiger du contenu
+-- déjà expiré, aucune fuite entre comptes possible.
 --
 -- Cette fonction ne tourne pas seule : programme-la avec pg_cron
 -- (Database > Extensions > pg_cron dans Supabase) ou un Vercel Cron qui
@@ -134,9 +150,9 @@ revoke execute on function public.enforce_clipboard_history_limit() from public,
 revoke execute on function public.redact_expired_passwords() from public, anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- Module Fichiers ("Secure Drop") — même philosophie que clipboard_items :
--- verrou "un seul compte", pas de colonne user_id, expiration à 1h
--- affichée côté client (voir modules/files/index.tsx).
+-- Module Fichiers ("Secure Drop") — même philosophie multi-tenant que
+-- clipboard_items : user_id + RLS scopée. Expiration à 1h affichée côté
+-- client (voir modules/files/index.tsx).
 --
 -- ⚠️ Contrairement au presse-papier, il n'y a PAS de trigger de purge
 -- automatique par nombre d'entrées ici : supprimer une ligne de
@@ -148,6 +164,7 @@ revoke execute on function public.redact_expired_passwords() from public, anon, 
 -- ─────────────────────────────────────────────────────────────────────────
 create table if not exists public.shared_files (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
   storage_path text not null unique,
   file_name text not null,
   mime_type text,
@@ -157,25 +174,26 @@ create table if not exists public.shared_files (
 );
 
 create index if not exists idx_shared_files_created_at on public.shared_files (created_at desc);
+create index if not exists idx_shared_files_user_id on public.shared_files (user_id);
 
 alter table public.shared_files enable row level security;
-alter table public.shared_files replica identity full;
+-- Pas `replica identity full` — même raisonnement que clipboard_items.
 alter publication supabase_realtime add table public.shared_files;
 
-create policy "authenticated can read shared_files"
+create policy "users can read own shared_files"
   on public.shared_files for select
   to authenticated
-  using (true);
+  using ((select auth.uid()) = user_id);
 
-create policy "authenticated can insert shared_files"
+create policy "users can insert own shared_files"
   on public.shared_files for insert
   to authenticated
-  with check (true);
+  with check ((select auth.uid()) = user_id);
 
-create policy "authenticated can delete shared_files"
+create policy "users can delete own shared_files"
   on public.shared_files for delete
   to authenticated
-  using (true);
+  using ((select auth.uid()) = user_id);
 
 -- Bucket privé (pas d'accès public direct — uniquement via session
 -- authentifiée, ou URL signée à courte durée de vie générée à la demande
@@ -184,17 +202,25 @@ insert into storage.buckets (id, name, public, file_size_limit)
 values ('shared-files', 'shared-files', false, 20971520)
 on conflict (id) do nothing;
 
-create policy "authenticated can read shared-files objects"
-  on storage.objects for select
-  to authenticated
-  using (bucket_id = 'shared-files');
-
+-- Isolation par propriétaire via la colonne `owner_id` que Supabase
+-- Storage remplit LUI-MÊME (auth.uid() de l'uploadeur) à chaque upload —
+-- pas besoin de préfixer les chemins par un dossier `{user_id}/...` ni de
+-- toucher au code d'upload. L'INSERT reste ouvert à tout compte
+-- authentifié (owner_id n'est pas garanti disponible à l'évaluation du
+-- WITH CHECK d'un INSERT) ; c'est en lecture/suppression que la propriété
+-- est vérifiée, ce qui suffit à empêcher un compte de lire/supprimer le
+-- fichier d'un autre.
 create policy "authenticated can upload shared-files objects"
   on storage.objects for insert
   to authenticated
   with check (bucket_id = 'shared-files');
 
-create policy "authenticated can delete shared-files objects"
+create policy "users can read own shared-files objects"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'shared-files' and owner_id = (select auth.uid())::text);
+
+create policy "users can delete own shared-files objects"
   on storage.objects for delete
   to authenticated
-  using (bucket_id = 'shared-files');
+  using (bucket_id = 'shared-files' and owner_id = (select auth.uid())::text);

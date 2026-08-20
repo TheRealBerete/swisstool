@@ -1,6 +1,7 @@
 /** Reflète la table `shared_files` (supabase/schema.sql). */
 export interface SharedFile {
   id: string;
+  user_id: string;
   storage_path: string;
   file_name: string;
   mime_type: string | null;

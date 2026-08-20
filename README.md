@@ -14,11 +14,12 @@ Voir [PRD.MD](./PRD.MD) pour le détail du produit.
    `shared-files`, active Realtime, et pose les politiques RLS.
 3. Va dans **Authentication → Providers → Email** et **désactive "Allow new
    users to sign up"**. C'est important : SwissTool n'a pas de page
-   d'inscription (verrou d'accès à un seul compte), donc si le sign-up
-   public reste activé côté Supabase, n'importe qui trouvant l'URL de l'app
-   pourrait se créer un compte tout seul.
+   d'inscription (comptes créés uniquement par toi, voir §Multi-tenant plus
+   bas), donc si le sign-up public reste activé côté Supabase, n'importe
+   qui trouvant l'URL de l'app pourrait se créer un compte tout seul.
 4. Va dans **Authentication → Users → Add user** et crée ton compte
-   (email + mot de passe) à la main.
+   (email + mot de passe) à la main. Répète cette étape pour chaque
+   personne à qui tu veux donner un accès — voir §Multi-tenant.
 5. Va dans **Authentication → Policies** (ou Providers → Email → Password)
    et active **Leaked Password Protection** si ton plan Supabase le permet
    (Pro et plus — vérifie contre HaveIBeenPwned.org à la création du
@@ -72,6 +73,19 @@ src/proxy.ts              # Protection des routes (redirige vers /login si non c
 supabase/schema.sql        # Schéma DB + Storage + RLS + triggers
 ```
 
+## Multi-tenant
+
+Depuis le 2026-08-20, plusieurs comptes peuvent coexister, chacun avec son
+propre espace **totalement isolé** (Presse-papier, Fichiers, Historique) —
+un compte ne voit ni ne modifie jamais les données d'un autre. Isolation
+posée en base (RLS Postgres scopée sur `user_id`/`owner_id`), pas dans le
+code applicatif : voir `supabase/schema.sql`.
+
+**Ajouter un nouveau compte** (invite-only, pas de formulaire public) :
+**Authentication → Users → Add user** dans le dashboard Supabase. Le
+nouveau compte démarre avec un espace vide — rien à migrer, rien à
+configurer côté app.
+
 ## Sécurité — état des lieux
 
 Vérifié via les *Security Advisors* Supabase (MCP `get_advisors`) :
@@ -79,9 +93,11 @@ Vérifié via les *Security Advisors* Supabase (MCP `get_advisors`) :
 | Point | État |
 | :--- | :--- |
 | RLS activé sur `clipboard_items`, `shared_files`, `storage.objects` | ✅ |
+| Isolation multi-tenant (`user_id`/`owner_id`, policies scopées `auth.uid()`) | ✅ vérifiée le 20.08 |
 | Fonctions `SECURITY DEFINER` non exposées publiquement (`enforce_clipboard_history_limit`, `redact_expired_passwords`) | ✅ |
-| Bucket `shared-files` privé (pas d'URL publique, téléchargement via lien signé 60s) | ✅ |
-| Un seul compte existe (`auth.users`), pas d'inscription publique | ✅ vérifié le 14.08 |
+| Bucket `shared-files` privé (pas d'URL publique, téléchargement via lien signé 5 min) | ✅ |
+| `replica identity` par défaut (pas `full`) sur `clipboard_items`/`shared_files` — évite qu'un DELETE fasse fuiter la ligne complète via Realtime, qui n'applique pas RLS aux DELETE | ✅ corrigé le 20.08 |
+| Inscription publique désactivée, comptes créés à la main (dashboard) | ✅ |
 | Leaked Password Protection | ⚠️ à activer manuellement (dashboard, nécessite plan Pro+) |
 | `public.rls_auto_enable()` visible par `anon`/`authenticated` | ℹ️ fonction interne à la plateforme Supabase, pas la nôtre — rien à corriger |
 
