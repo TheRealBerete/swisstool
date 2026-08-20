@@ -10,6 +10,7 @@ import {
   Loader2,
   Music,
   RotateCcw,
+  Smartphone,
   Video,
 } from "lucide-react";
 import { Card } from "@/shared/Card";
@@ -66,6 +67,8 @@ export function DownloaderModule() {
     .filter((f) => f.vcodec === "none")
     .sort((a, b) => b.filesize - a.filesize);
   const visibleFormats = tab === "video" ? videoFormats : audioFormats;
+  const selectedFormat = info?.formats.find((f) => f.format_id === selectedFormatId) ?? null;
+  const isVideoResult = !!selectedFormat && selectedFormat.vcodec !== "none";
 
   async function handlePaste() {
     try {
@@ -242,7 +245,49 @@ export function DownloaderModule() {
             )}
 
             {result && (
-              <div className="flex flex-col gap-2 p-4 rounded-lg bg-surface-container-low border border-outline-variant">
+              <div className="flex flex-col gap-3 p-4 rounded-lg bg-surface-container-low border border-outline-variant">
+                {isVideoResult && (
+                  <>
+                    {/* <video> plutôt qu'un simple lien : c'est CETTE balise qui
+                        permet l'astuce "appui long → Enregistrer la vidéo" sur
+                        iPhone. Un <video> lit un fichier distant sans avoir
+                        besoin d'en-têtes CORS (contrairement à un fetch() en
+                        JS) — c'est le navigateur qui charge le flux nativement,
+                        pas notre code, donc la politique CORS ne s'applique pas
+                        ici. Sources : WebKit/MDN, cf. récap pédagogique. */}
+                    <video
+                      key={result.url}
+                      controls
+                      playsInline
+                      poster={info.thumbnail || undefined}
+                      className="w-full rounded-lg bg-black max-h-80"
+                    >
+                      <source
+                        src={result.url}
+                        type={`video/${selectedFormat?.ext === "mp4" ? "mp4" : selectedFormat?.ext}`}
+                      />
+                    </video>
+                    {selectedFormat?.ext === "mp4" ? (
+                      <p className="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">
+                        <Smartphone className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          Sur iPhone : appuie longuement sur la vidéo ci-dessus, puis choisis{" "}
+                          <strong className="text-on-background">Enregistrer la vidéo</strong> —
+                          elle est ajoutée directement à ta galerie Photos.
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">
+                        <Smartphone className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          Format {selectedFormat?.ext.toUpperCase()} : Safari (iPhone) ne peut pas le
+                          lire. Choisis un format <strong className="text-on-background">MP4</strong>{" "}
+                          ci-dessus pour prévisualiser et enregistrer directement dans la galerie.
+                        </span>
+                      </p>
+                    )}
+                  </>
+                )}
                 <p className="font-mono text-body-sm text-on-background truncate">
                   {result.filename}
                 </p>
@@ -264,7 +309,7 @@ export function DownloaderModule() {
                   </Button>
                 </div>
                 <p className="font-body-sm text-[11px] text-on-surface-variant">
-                  Lien temporaire — télécharge-le rapidement, ou envoie-le au presse-papier
+                  Lien temporaire — enregistre-le rapidement, ou envoie-le au presse-papier
                   SwissTool pour le récupérer sur un autre appareil avant qu&apos;il n&apos;expire.
                 </p>
               </div>

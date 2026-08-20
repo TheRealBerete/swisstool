@@ -12,13 +12,25 @@ type Status = "idle" | "analyzing" | "ready" | "downloading";
  * priorité un format "progressif" (vidéo + audio dans le même fichier, donc
  * lisible tel quel sans montage) à la meilleure résolution, sinon la
  * meilleure vidéo disponible (adaptative, sans son) — évite un clic de plus
- * pour le cas d'usage le plus courant ("juste télécharger la vidéo"). */
+ * pour le cas d'usage le plus courant ("juste télécharger la vidéo").
+ *
+ * Second critère (après vidéo+son) : le conteneur MP4 passe avant WebM à
+ * qualité égale. Safari/iOS ne sait pas lire le WebM dans une balise
+ * <video> — or c'est justement cette balise qui permet l'astuce "appui
+ * long → Enregistrer la vidéo" pour sauver direct dans la pellicule sur
+ * iPhone (voir DownloaderModule). Présélectionner du MP4 quand ça existe
+ * rend ce chemin utilisable sans que l'utilisateur ait à connaître cette
+ * contrainte lui-même. */
 function pickDefaultFormat(formats: LotusFormat[]): string | null {
   const withAudio = formats.filter((f) => f.vcodec !== "none" && f.acodec !== "none");
   const anyVideo = formats.filter((f) => f.vcodec !== "none");
   const pool = withAudio.length > 0 ? withAudio : anyVideo.length > 0 ? anyVideo : formats;
-  const best = [...pool].sort((a, b) => b.height - a.height)[0];
-  return best?.format_id ?? null;
+  const ranked = [...pool].sort((a, b) => {
+    // Tri décroissant sur "est-ce du mp4" (1 avant 0) : b - a, pas a - b.
+    const mp4Rank = (b.ext === "mp4" ? 1 : 0) - (a.ext === "mp4" ? 1 : 0);
+    return mp4Rank !== 0 ? mp4Rank : b.height - a.height;
+  });
+  return ranked[0]?.format_id ?? null;
 }
 
 export function useMediaDownloader() {
