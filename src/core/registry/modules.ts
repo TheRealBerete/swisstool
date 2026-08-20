@@ -1,7 +1,8 @@
-import { ClipboardList, FolderUp, History, KeyRound, Settings, Wrench } from "lucide-react";
+import { ClipboardList, Film, FolderUp, History, KeyRound, Settings, Wrench } from "lucide-react";
 import { ClipboardModule } from "@/modules/clipboard";
 import { PasswordModule } from "@/modules/password";
 import { FilesModule } from "@/modules/files";
+import { DownloaderModule } from "@/modules/downloader";
 import type { Module, NavItem } from "./types";
 
 /**
@@ -44,6 +45,17 @@ export const tools: Module[] = [
     href: "/outils?tool=files",
     component: FilesModule,
     config: { requiresAuth: true, requiresSupabase: true },
+  },
+  {
+    id: "downloader",
+    label: "Vidéos",
+    icon: Film,
+    href: "/outils?tool=downloader",
+    component: DownloaderModule,
+    // requiresSupabase: false — ce module ne touche à aucune table (l'API
+    // Lotus fait tout), Supabase n'intervient que si on envoie le lien
+    // résultant au presse-papier partagé (déjà couvert par ce module-là).
+    config: { requiresAuth: true, requiresSupabase: false },
   },
 ];
 
