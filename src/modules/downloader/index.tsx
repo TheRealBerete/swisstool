@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   ClipboardCopy,
   Clock,
@@ -10,7 +10,7 @@ import {
   Loader2,
   Music,
   RotateCcw,
-  Smartphone,
+  Share2,
   Video,
 } from "lucide-react";
 import { Card } from "@/shared/Card";
@@ -18,6 +18,8 @@ import { Button } from "@/shared/Button";
 import { Input } from "@/shared/Input";
 import { Badge } from "@/shared/Badge";
 import { copyToClipboard } from "@/modules/clipboard/hooks";
+import { fetchAsFile } from "@/core/services/lotusApi";
+import { toast } from "@/core/store/useToastStore";
 import { useMediaDownloader } from "./hooks";
 import type { LotusFormat } from "./types";
 
@@ -43,6 +45,22 @@ function formatLabel(format: LotusFormat): string {
 
 type Tab = "video" | "audio";
 
+// `navigator.share` n'existe pas côté serveur (Node n'a pas de `navigator`)
+// — useSyncExternalStore est le hook pensé pour exactement ce cas : une
+// valeur lue dans l'environnement navigateur, `false` pendant le rendu
+// serveur/l'hydratation initiale (getServerSnapshot), la vraie valeur
+// ensuite (getSnapshot). Pas d'abonnement réel à faire (le support de
+// l'API ne change jamais en cours de session), donc `subscribe` est un
+// no-op — mais il faut quand même le fournir, c'est le contrat du hook.
+const noopSubscribe = () => () => {};
+function useCanNativeShare(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => typeof navigator !== "undefined" && typeof navigator.share === "function",
+    () => false
+  );
+}
+
 export function DownloaderModule() {
   const {
     url,
@@ -59,6 +77,8 @@ export function DownloaderModule() {
     downloading,
   } = useMediaDownloader();
   const [tab, setTab] = useState<Tab>("video");
+  const canNativeShare = useCanNativeShare();
+  const [savingToGallery, setSavingToGallery] = useState(false);
 
   const videoFormats = (info?.formats ?? [])
     .filter((f) => f.vcodec !== "none")
@@ -69,6 +89,39 @@ export function DownloaderModule() {
   const visibleFormats = tab === "video" ? videoFormats : audioFormats;
   const selectedFormat = info?.formats.find((f) => f.format_id === selectedFormatId) ?? null;
   const isVideoResult = !!selectedFormat && selectedFormat.vcodec !== "none";
+
+  /**
+   * Bouton "Enregistrer dans Photos" — remplace l'astuce "appui long" sur
+   * la vidéo, peu fiable en pratique (confirmé par un utilisateur réel :
+   * marche partout sauf sur iPhone). `navigator.share({ files })` ouvre la
+   * feuille de partage native iOS/Android, où "Enregistrer la vidéo" /
+   * "Photos" est une cible de premier niveau — déterministe, pas un geste
+   * caché à découvrir. Nécessite les octets réels (fetchAsFile passe par
+   * notre proxy /api/lotus/stream, seul moyen de contourner le CORS du
+   * bucket R2 pour un fetch() JS — voir route.ts).
+   */
+  async function saveToGallery() {
+    if (!result || !selectedFormat) return;
+    setSavingToGallery(true);
+    try {
+      const file = await fetchAsFile(result.url, result.filename, `video/${selectedFormat.ext}`);
+      if (!file) return; // fetchAsFile a déjà affiché le toast d'erreur
+
+      if (!navigator.canShare?.({ files: [file] })) {
+        toast.error("Le partage de fichiers n'est pas supporté ici — utilise Télécharger.");
+        return;
+      }
+      await navigator.share({ files: [file], title: result.filename });
+    } catch (err) {
+      // AbortError : l'utilisateur a juste fermé la feuille de partage,
+      // ce n'est pas un échec à signaler.
+      if ((err as DOMException)?.name !== "AbortError") {
+        toast.error("Échec de l'enregistrement");
+      }
+    } finally {
+      setSavingToGallery(false);
+    }
+  }
 
   async function handlePaste() {
     try {
@@ -248,13 +301,9 @@ export function DownloaderModule() {
               <div className="flex flex-col gap-3 p-4 rounded-lg bg-surface-container-low border border-outline-variant">
                 {isVideoResult && (
                   <>
-                    {/* <video> plutôt qu'un simple lien : c'est CETTE balise qui
-                        permet l'astuce "appui long → Enregistrer la vidéo" sur
-                        iPhone. Un <video> lit un fichier distant sans avoir
-                        besoin d'en-têtes CORS (contrairement à un fetch() en
-                        JS) — c'est le navigateur qui charge le flux nativement,
-                        pas notre code, donc la politique CORS ne s'applique pas
-                        ici. Sources : WebKit/MDN, cf. récap pédagogique. */}
+                    {/* Aperçu seulement — un <video> lit un fichier distant sans
+                        en-têtes CORS (contrairement à un fetch() JS), donc pas
+                        besoin de passer par notre proxy ici. */}
                     <video
                       key={result.url}
                       controls
@@ -267,24 +316,35 @@ export function DownloaderModule() {
                         type={`video/${selectedFormat?.ext === "mp4" ? "mp4" : selectedFormat?.ext}`}
                       />
                     </video>
-                    {selectedFormat?.ext === "mp4" ? (
-                      <p className="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">
-                        <Smartphone className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>
-                          Sur iPhone : appuie longuement sur la vidéo ci-dessus, puis choisis{" "}
-                          <strong className="text-on-background">Enregistrer la vidéo</strong> —
-                          elle est ajoutée directement à ta galerie Photos.
-                        </span>
+                    {selectedFormat?.ext !== "mp4" && (
+                      <p className="font-body-sm text-body-sm text-on-surface-variant">
+                        Format {selectedFormat?.ext.toUpperCase()} : Safari (iPhone) ne peut pas
+                        lire l&apos;aperçu ci-dessus. Choisis un format{" "}
+                        <strong className="text-on-background">MP4</strong> dans la liste si tu
+                        veux prévisualiser avant d&apos;enregistrer.
                       </p>
-                    ) : (
-                      <p className="flex items-start gap-1.5 font-body-sm text-body-sm text-on-surface-variant">
-                        <Smartphone className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>
-                          Format {selectedFormat?.ext.toUpperCase()} : Safari (iPhone) ne peut pas le
-                          lire. Choisis un format <strong className="text-on-background">MP4</strong>{" "}
-                          ci-dessus pour prévisualiser et enregistrer directement dans la galerie.
-                        </span>
-                      </p>
+                    )}
+                    {canNativeShare && (
+                      <>
+                        <Button
+                          onClick={saveToGallery}
+                          disabled={savingToGallery}
+                          className="w-full"
+                        >
+                          {savingToGallery ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Share2 className="w-3.5 h-3.5" />
+                          )}
+                          {savingToGallery ? "Préparation..." : "Enregistrer dans Photos"}
+                        </Button>
+                        <p className="font-body-sm text-[11px] text-on-surface-variant -mt-1">
+                          Ouvre le menu de partage natif — choisis{" "}
+                          <strong className="text-on-background">Enregistrer la vidéo</strong>{" "}
+                          (iPhone) ou <strong className="text-on-background">Photos</strong>{" "}
+                          (Android) pour l&apos;ajouter directement à ta galerie.
+                        </p>
+                      </>
                     )}
                   </>
                 )}
