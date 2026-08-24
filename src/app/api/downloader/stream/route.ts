@@ -53,3 +53,9 @@ export async function GET(request: NextRequest) {
 
   return new Response(upstream.body, { status: upstream.status, headers });
 }
+
+// Le flux reste ouvert le temps de relayer tout le fichier (peut dépasser
+// le timeout serverless par défaut sur une vidéo un peu longue) — la
+// fonction reste "active" pendant tout le streaming, pas juste le premier
+// octet.
+export const maxDuration = 60;

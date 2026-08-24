@@ -33,3 +33,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Erreur inconnue" }, { status: 500 });
   }
 }
+
+// Cette route n'attend normalement que quelques centaines de ms (étape 1
+// VidsSave ou appel unique RapidAPI), mais un appel réseau externe peut
+// parfois traîner — mieux vaut une marge que le timeout par défaut du
+// plan Vercel (502 générique sans message exploitable, voir vidssave.ts).
+export const maxDuration = 30;

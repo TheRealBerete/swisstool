@@ -5,6 +5,20 @@ const VIDSSAVE_AUTH = process.env.VIDSSAVE_AUTH ?? "20250901majwlqo";
 const VIDSSAVE_DOMAIN = process.env.VIDSSAVE_DOMAIN ?? "api-ak.vidssave.com";
 const VIDSSAVE_BASE = "https://api.vidssave.com";
 
+/** VidsSave est une API interne non-officielle (doc §10, pas un vrai
+ * partenaire) — sans en-têtes qui ressemblent à un navigateur réel
+ * appelant depuis vidssave.com, une protection anti-bot (souvent Cloudflare)
+ * peut bloquer silencieusement les requêtes venant d'IP de datacenter
+ * (Vercel, AWS...), qui n'ont pas la même réputation qu'une IP
+ * résidentielle. On imite ici les en-têtes qu'enverrait le site public. */
+const BROWSER_LIKE_HEADERS = {
+  "content-type": "application/x-www-form-urlencoded",
+  "user-agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+  origin: "https://vidssave.com",
+  referer: "https://vidssave.com/",
+};
+
 /** Étape 1 (doc §10.2) — liste les formats disponibles pour une vidéo
  * YouTube, avec leur taille déjà connue (le provider a lui-même filtré à
  * <= 50 Mo, limite Telegram côté bot d'origine — coïncide avec la limite
@@ -14,13 +28,17 @@ const VIDSSAVE_BASE = "https://api.vidssave.com";
 export async function parseYoutube(url: string): Promise<VidsSaveParseData> {
   const res = await fetch(`${VIDSSAVE_BASE}/api/contentsite_api/media/parse`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: BROWSER_LIKE_HEADERS,
     body: new URLSearchParams({ auth: VIDSSAVE_AUTH, domain: VIDSSAVE_DOMAIN, origin: "source", link: url }),
     cache: "no-store",
   });
   const json = await readJson(res);
   const data = json.data as VidsSaveParseData | undefined;
   if (!res.ok || !data) {
+    // Loggé côté serveur (visible dans les logs de fonction Vercel) pour
+    // diagnostiquer SANS exposer le détail brut au client (message
+    // générique renvoyé au navigateur).
+    console.error("[vidssave] parse échoué", { status: res.status, body: json });
     throw new DownloaderApiError("Impossible de lire cette vidéo YouTube", 502);
   }
   return data;
@@ -33,7 +51,7 @@ export async function parseYoutube(url: string): Promise<VidsSaveParseData> {
 export async function resolveResource(resourceContent: string): Promise<{ url: string; size: number | null }> {
   const startRes = await fetch(`${VIDSSAVE_BASE}/api/contentsite_api/media/download`, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: BROWSER_LIKE_HEADERS,
     body: new URLSearchParams({
       auth: VIDSSAVE_AUTH,
       domain: VIDSSAVE_DOMAIN,
@@ -45,6 +63,7 @@ export async function resolveResource(resourceContent: string): Promise<{ url: s
   const startJson = await readJson(startRes);
   const taskId = (startJson.data as { task_id?: string } | undefined)?.task_id;
   if (!startRes.ok || !taskId) {
+    console.error("[vidssave] download (étape 2) échoué", { status: startRes.status, body: startJson });
     throw new DownloaderApiError("Échec de la préparation du fichier", 502);
   }
 
@@ -65,9 +84,14 @@ export async function resolveResource(resourceContent: string): Promise<{ url: s
   try {
     const sseRes = await fetch(
       `${VIDSSAVE_BASE}/sse/contentsite_api/media/download_query?${sseParams.toString()}`,
-      { headers: { Accept: "text/event-stream" }, signal: controller.signal, cache: "no-store" }
+      {
+        headers: { ...BROWSER_LIKE_HEADERS, accept: "text/event-stream" },
+        signal: controller.signal,
+        cache: "no-store",
+      }
     );
     if (!sseRes.ok || !sseRes.body) {
+      console.error("[vidssave] SSE (étape 3) échoué", { status: sseRes.status });
       throw new DownloaderApiError("Échec du suivi de préparation", 502);
     }
     const { downloadLink, size } = await readSseResult(sseRes.body);
