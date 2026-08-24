@@ -34,6 +34,8 @@ cp .env.local.example .env.local
 
 Remplis `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY` avec
 les valeurs de **Project Settings → API** dans le dashboard Supabase.
+Renseigne aussi `RAPIDAPI_KEY` (voir §Module Téléchargeur) si tu comptes
+utiliser cet outil.
 
 ### 3. Lancer en dev
 
@@ -58,16 +60,19 @@ src/
 │       └── settings/
 ├── core/
 │   ├── layout/           # Sidebar, TopBar, BottomNav, AppShell
-│   ├── services/         # eventBus, clipboardApi, filesApi, storage (localStorage)
+│   ├── services/         # eventBus, clipboardApi, filesApi, downloaderApi, storage (localStorage)
 │   ├── store/             # Zustand : thème, toasts
 │   └── registry/          # Liste des modules (contrat PRD §12.2)
 ├── modules/               # Un dossier = un module indépendant
 │   ├── clipboard/
 │   ├── password/
 │   ├── history/
-│   └── files/             # "Secure Drop" — upload vers Supabase Storage
+│   ├── files/             # "Secure Drop" — upload vers Supabase Storage
+│   └── downloader/         # Téléchargeur de médias (RapidAPI + VidsSave)
 ├── shared/                 # UI réutilisable (Button, Card, Input, Badge...)
-└── lib/supabase/            # Clients Supabase (browser / server / proxy)
+└── lib/
+    ├── supabase/            # Clients Supabase (browser / server / proxy)
+    └── media-downloader/     # Clients RapidAPI/VidsSave + garde-fou SSRF
 
 src/proxy.ts              # Protection des routes (redirige vers /login si non connecté)
 supabase/schema.sql        # Schéma DB + Storage + RLS + triggers
@@ -86,6 +91,32 @@ code applicatif : voir `supabase/schema.sql`.
 nouveau compte démarre avec un espace vide — rien à migrer, rien à
 configurer côté app.
 
+## Module Téléchargeur
+
+Récupère un lien de téléchargement direct depuis Instagram, TikTok,
+Facebook, X/Twitter et YouTube. Deux providers externes, routés
+automatiquement selon le domaine de l'URL collée (voir
+`src/lib/media-downloader/`) :
+
+- **RapidAPI `social-download-all-in-one`** — Instagram/TikTok/Facebook/X.
+  Un seul appel, URL de téléchargement immédiatement disponible. Nécessite
+  `RAPIDAPI_KEY` (compte sur rapidapi.com).
+- **VidsSave** (non-officiel) — YouTube uniquement, plus fiable que
+  RapidAPI sur cette plateforme spécifique. Flux en 3 appels dont une
+  attente SSE (résolution déclenchée seulement au moment où l'utilisateur
+  choisit un format, jamais pour tous les formats d'un coup).
+
+Les deux providers renvoient des fichiers déjà complets (vidéo + son
+intégré) — pas de montage côté client nécessaire.
+
+**Enregistrement direct dans la galerie (iPhone/Android)** : le bouton
+"Enregistrer dans Photos" utilise `navigator.share({ files })` (Web Share
+API) plutôt qu'un geste (appui long), plus fiable en pratique. Comme les
+CDN médias externes n'envoient pas d'en-têtes CORS, ce bouton passe par un
+proxy serveur (`/api/downloader/stream`) qui relaie les octets — ce proxy
+valide que la cible ne résout pas vers une IP privée/interne avant de la
+fetcher (défense SSRF, voir `src/lib/media-downloader/ssrf.ts`).
+
 ## Sécurité — état des lieux
 
 Vérifié via les *Security Advisors* Supabase (MCP `get_advisors`) :
@@ -99,6 +130,7 @@ Vérifié via les *Security Advisors* Supabase (MCP `get_advisors`) :
 | `replica identity` par défaut (pas `full`) sur `clipboard_items`/`shared_files` — évite qu'un DELETE fasse fuiter la ligne complète via Realtime, qui n'applique pas RLS aux DELETE | ✅ corrigé le 20.08 |
 | Inscription publique désactivée, comptes créés à la main (dashboard) | ✅ |
 | Leaked Password Protection | ⚠️ à activer manuellement (dashboard, nécessite plan Pro+) |
+| Proxy `/api/downloader/stream` (module Téléchargeur) protégé contre le SSRF par résolution DNS + blocage des IP privées/internes, pas d'allowlist de domaine | ✅ |
 | `public.rls_auto_enable()` visible par `anon`/`authenticated` | ℹ️ fonction interne à la plateforme Supabase, pas la nôtre — rien à corriger |
 
 ### ⚠️ Limite connue : purge automatique des fichiers expirés

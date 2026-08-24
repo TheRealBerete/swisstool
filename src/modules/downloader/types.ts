@@ -1,1 +1,1 @@
-export type { LotusDownloadResult, LotusFormat, LotusVideoInfo } from "@/lib/lotus/types";
+export type { MediaDownloadResult, MediaFormat, MediaInfo } from "@/lib/media-downloader/types";

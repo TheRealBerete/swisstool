@@ -52,9 +52,10 @@ export const tools: Module[] = [
     icon: Film,
     href: "/outils?tool=downloader",
     component: DownloaderModule,
-    // requiresSupabase: false — ce module ne touche à aucune table (l'API
-    // Lotus fait tout), Supabase n'intervient que si on envoie le lien
-    // résultant au presse-papier partagé (déjà couvert par ce module-là).
+    // requiresSupabase: false — ce module ne touche à aucune table
+    // (RapidAPI/VidsSave font tout), Supabase n'intervient que si on
+    // envoie le lien résultant au presse-papier partagé (déjà couvert par
+    // ce module-là).
     config: { requiresAuth: true, requiresSupabase: false },
   },
 ];

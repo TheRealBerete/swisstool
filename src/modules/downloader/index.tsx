@@ -18,12 +18,12 @@ import { Button } from "@/shared/Button";
 import { Input } from "@/shared/Input";
 import { Badge } from "@/shared/Badge";
 import { copyToClipboard } from "@/modules/clipboard/hooks";
-import { fetchAsFile } from "@/core/services/lotusApi";
+import { fetchAsFile } from "@/core/services/downloaderApi";
 import { toast } from "@/core/store/useToastStore";
 import { useMediaDownloader } from "./hooks";
-import type { LotusFormat } from "./types";
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number | null): string {
+  if (seconds == null) return "—";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
@@ -32,18 +32,13 @@ function formatDuration(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-function formatSize(bytes: number): string {
+function formatSize(bytes: number | null): string {
   if (!bytes) return "taille inconnue";
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
-function formatLabel(format: LotusFormat): string {
-  if (format.vcodec === "none") return "Audio";
-  return format.fps ? `${format.resolution} ${format.fps}fps` : format.resolution;
-}
-
-type Tab = "video" | "audio";
+type Tab = "primary" | "audio";
 
 // `navigator.share` n'existe pas côté serveur (Node n'a pas de `navigator`)
 // — useSyncExternalStore est le hook pensé pour exactement ce cas : une
@@ -76,35 +71,36 @@ export function DownloaderModule() {
     analyzing,
     downloading,
   } = useMediaDownloader();
-  const [tab, setTab] = useState<Tab>("video");
+  const [tab, setTab] = useState<Tab>("primary");
   const canNativeShare = useCanNativeShare();
   const [savingToGallery, setSavingToGallery] = useState(false);
 
-  const videoFormats = (info?.formats ?? [])
-    .filter((f) => f.vcodec !== "none")
-    .sort((a, b) => b.height - a.height);
+  // "primary" regroupe vidéo + photo (le cas photo-seule est rare — un
+  // tweet X sans vidéo, typiquement — pas la peine d'un 3e onglet dédié).
+  const primaryFormats = (info?.formats ?? [])
+    .filter((f) => f.kind !== "audio")
+    .sort((a, b) => (b.height ?? 0) - (a.height ?? 0));
   const audioFormats = (info?.formats ?? [])
-    .filter((f) => f.vcodec === "none")
-    .sort((a, b) => b.filesize - a.filesize);
-  const visibleFormats = tab === "video" ? videoFormats : audioFormats;
-  const selectedFormat = info?.formats.find((f) => f.format_id === selectedFormatId) ?? null;
-  const isVideoResult = !!selectedFormat && selectedFormat.vcodec !== "none";
+    .filter((f) => f.kind === "audio")
+    .sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+  const visibleFormats = tab === "primary" ? primaryFormats : audioFormats;
+  const selectedFormat = info?.formats.find((f) => f.id === selectedFormatId) ?? null;
 
   /**
-   * Bouton "Enregistrer dans Photos" — remplace l'astuce "appui long" sur
-   * la vidéo, peu fiable en pratique (confirmé par un utilisateur réel :
-   * marche partout sauf sur iPhone). `navigator.share({ files })` ouvre la
-   * feuille de partage native iOS/Android, où "Enregistrer la vidéo" /
-   * "Photos" est une cible de premier niveau — déterministe, pas un geste
-   * caché à découvrir. Nécessite les octets réels (fetchAsFile passe par
-   * notre proxy /api/lotus/stream, seul moyen de contourner le CORS du
-   * bucket R2 pour un fetch() JS — voir route.ts).
+   * Bouton "Enregistrer dans Photos" — utilise `navigator.share({ files })`
+   * pour ouvrir la feuille de partage native iOS/Android, où
+   * "Enregistrer la vidéo"/"Photos" est une cible de premier niveau —
+   * déterministe, pas un geste caché à découvrir. Nécessite les octets
+   * réels (fetchAsFile passe par notre proxy /api/downloader/stream, seul
+   * moyen de contourner le CORS des CDN médias pour un fetch() JS).
    */
   async function saveToGallery() {
     if (!result || !selectedFormat) return;
     setSavingToGallery(true);
     try {
-      const file = await fetchAsFile(result.url, result.filename, `video/${selectedFormat.ext}`);
+      const mimeType =
+        selectedFormat.kind === "photo" ? `image/${selectedFormat.ext}` : `video/${selectedFormat.ext}`;
+      const file = await fetchAsFile(result.url, result.filename, mimeType);
       if (!file) return; // fetchAsFile a déjà affiché le toast d'erreur
 
       if (!navigator.canShare?.({ files: [file] })) {
@@ -141,8 +137,8 @@ export function DownloaderModule() {
           Téléchargeur de médias
         </h3>
         <p className="font-body-sm text-body-sm text-on-surface-variant -mt-2">
-          Colle le lien d&apos;une vidéo (YouTube et autres plateformes prises en charge) pour
-          récupérer un lien de téléchargement direct.
+          Colle le lien d&apos;un post Instagram, TikTok, Facebook, X/Twitter ou d&apos;une vidéo
+          YouTube pour récupérer un lien de téléchargement direct.
         </p>
         <div className="flex gap-2">
           <Input
@@ -197,14 +193,21 @@ export function DownloaderModule() {
             )}
             <div className="min-w-0 flex flex-col gap-1 justify-center">
               <p className="font-body-md text-body-md text-on-background line-clamp-2">
-                {info.title}
+                {info.title || "Sans titre"}
               </p>
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge>{info.platform}</Badge>
-                <span className="flex items-center gap-1 font-body-sm text-[12px] text-outline">
-                  <Clock className="w-3 h-3" />
-                  {formatDuration(info.duration)}
-                </span>
+                <Badge>{info.source}</Badge>
+                {info.author && (
+                  <span className="font-body-sm text-[12px] text-outline truncate max-w-[10rem]">
+                    @{info.author}
+                  </span>
+                )}
+                {info.duration != null && (
+                  <span className="flex items-center gap-1 font-body-sm text-[12px] text-outline">
+                    <Clock className="w-3 h-3" />
+                    {formatDuration(info.duration)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -212,9 +215,9 @@ export function DownloaderModule() {
           <div className="p-4 flex flex-col gap-3">
             <div className="flex gap-1 bg-surface-container p-1 rounded-xl w-fit">
               <button
-                onClick={() => setTab("video")}
+                onClick={() => setTab("primary")}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-label-md text-label-md transition-colors ${
-                  tab === "video"
+                  tab === "primary"
                     ? "bg-surface-container-lowest text-primary shadow-sm"
                     : "text-on-surface-variant hover:text-on-background"
                 }`}
@@ -243,12 +246,11 @@ export function DownloaderModule() {
                 </p>
               )}
               {visibleFormats.map((format) => {
-                const active = format.format_id === selectedFormatId;
-                const withAudio = format.vcodec !== "none" && format.acodec !== "none";
+                const active = format.id === selectedFormatId;
                 return (
                   <button
-                    key={format.format_id}
-                    onClick={() => setSelectedFormatId(format.format_id)}
+                    key={format.id}
+                    onClick={() => setSelectedFormatId(format.id)}
                     className={`flex items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors ${
                       active ? "bg-primary/10" : "hover:bg-surface-container-low"
                     }`}
@@ -260,19 +262,14 @@ export function DownloaderModule() {
                         }`}
                       />
                       <span className="font-mono text-body-sm text-on-background shrink-0">
-                        {formatLabel(format)}
+                        {format.label}
                       </span>
                       <Badge tone="muted" className="uppercase shrink-0">
                         {format.ext}
                       </Badge>
-                      {withAudio && (
-                        <Badge tone="neutral" className="hidden sm:inline">
-                          Avec son
-                        </Badge>
-                      )}
                     </div>
                     <span className="font-body-sm text-[12px] text-outline shrink-0">
-                      {formatSize(format.filesize)}
+                      {formatSize(format.size)}
                     </span>
                   </button>
                 );
@@ -299,7 +296,7 @@ export function DownloaderModule() {
 
             {result && (
               <div className="flex flex-col gap-3 p-4 rounded-lg bg-surface-container-low border border-outline-variant">
-                {isVideoResult && (
+                {selectedFormat?.kind === "video" && (
                   <>
                     {/* Aperçu seulement — un <video> lit un fichier distant sans
                         en-têtes CORS (contrairement à un fetch() JS), donc pas
@@ -313,39 +310,43 @@ export function DownloaderModule() {
                     >
                       <source
                         src={result.url}
-                        type={`video/${selectedFormat?.ext === "mp4" ? "mp4" : selectedFormat?.ext}`}
+                        type={`video/${selectedFormat.ext === "mp4" ? "mp4" : selectedFormat.ext}`}
                       />
                     </video>
-                    {selectedFormat?.ext !== "mp4" && (
+                    {selectedFormat.ext !== "mp4" && (
                       <p className="font-body-sm text-body-sm text-on-surface-variant">
-                        Format {selectedFormat?.ext.toUpperCase()} : Safari (iPhone) ne peut pas
+                        Format {selectedFormat.ext.toUpperCase()} : Safari (iPhone) ne peut pas
                         lire l&apos;aperçu ci-dessus. Choisis un format{" "}
                         <strong className="text-on-background">MP4</strong> dans la liste si tu
                         veux prévisualiser avant d&apos;enregistrer.
                       </p>
                     )}
-                    {canNativeShare && (
-                      <>
-                        <Button
-                          onClick={saveToGallery}
-                          disabled={savingToGallery}
-                          className="w-full"
-                        >
-                          {savingToGallery ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Share2 className="w-3.5 h-3.5" />
-                          )}
-                          {savingToGallery ? "Préparation..." : "Enregistrer dans Photos"}
-                        </Button>
-                        <p className="font-body-sm text-[11px] text-on-surface-variant -mt-1">
-                          Ouvre le menu de partage natif — choisis{" "}
-                          <strong className="text-on-background">Enregistrer la vidéo</strong>{" "}
-                          (iPhone) ou <strong className="text-on-background">Photos</strong>{" "}
-                          (Android) pour l&apos;ajouter directement à ta galerie.
-                        </p>
-                      </>
-                    )}
+                  </>
+                )}
+                {selectedFormat?.kind === "photo" && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={result.url}
+                    alt=""
+                    className="w-full rounded-lg bg-black max-h-80 object-contain"
+                  />
+                )}
+                {canNativeShare && selectedFormat?.kind !== "audio" && (
+                  <>
+                    <Button onClick={saveToGallery} disabled={savingToGallery} className="w-full">
+                      {savingToGallery ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Share2 className="w-3.5 h-3.5" />
+                      )}
+                      {savingToGallery ? "Préparation..." : "Enregistrer dans Photos"}
+                    </Button>
+                    <p className="font-body-sm text-[11px] text-on-surface-variant -mt-1">
+                      Ouvre le menu de partage natif — choisis{" "}
+                      <strong className="text-on-background">Enregistrer la vidéo</strong> (iPhone)
+                      ou <strong className="text-on-background">Photos</strong> (Android) pour
+                      l&apos;ajouter directement à ta galerie.
+                    </p>
                   </>
                 )}
                 <p className="font-mono text-body-sm text-on-background truncate">
